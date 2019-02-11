@@ -1,0 +1,49 @@
+#! /usr/bin/perl
+use strict; use warnings;
+use POSIX 'WNOHANG';
+
+# messy, but need to import user account into docker else the files created by Makerware
+# will have wrong permissions and be annoying, or maybe the user won't have access to files
+# they normally would.
+if ($ENV{ID}) {
+	my ($uid, $user, $gid, $group, $grouplist)=
+		($ENV{ID} =~ /^uid=([0-9]+)\(([^)]+)\) gid=([0-9]+)\(([^\)]+)\) groups=(.*)$/)
+		or die "Unexpected format for 'id' command : $ENV{ID}";
+	my @sgroups;
+	for ("$gid($group)", split ',', $grouplist) {
+		my ($sgid, $sgname)= ($_ =~ /^([0-9]+)\(([^)]+)\)$/)
+			or die "Unexpected format for 'id' command at : $_";
+		push @sgroups, $sgid;
+		system("groupadd", "-f", "-g", $sgid, $sgname) == 0
+			or die "groupadd -f -g $sgid $sgname";
+	}
+	$grouplist= join(',', @sgroups);
+	system("useradd", "-M", "-N", -u => $uid, -g => $gid, -G => $grouplist, $user) == 0
+		or die "useradd -M -N -u $uid -g $gid -G $grouplist";
+	$ENV{USER} //= $user;
+}
+
+
+# from conveyor service definition at /etc/init/conveyor
+`mkdir -p /var/run/conveyor`;
+`chown conveyor:conveyor /var/run/conveyor`;
+`chmod 775 /var/run/conveyor`;
+
+my @conveyor_cmd= qw( sudo -u conveyor LD_LIBRARY_PATH=/usr/lib/makerbot/ /usr/bin/conveyor-svc --config /etc/conveyor.conf );
+my @makerware_cmd= (($ENV{USER}? ( 'sudo', -u => $ENV{USER} ): ()), 'makerware');
+
+my ($conveyor, $makerware, $pid);
+# Launch conveyor.  Make sure it starts.
+if (!($conveyor= fork)) {
+	defined $conveyor or die "fork: $!";
+	exec(@conveyor_cmd) or die "Can't launch conveyor";
+}
+sleep 2;
+# is it still running?
+if (($pid= waitpid $conveyor, WNOHANG)) {
+	die "Conveyor didn't stay running\n";
+}
+# Now run makerware, and terminate when it exits
+system(@makerware_cmd);
+kill TERM => $conveyor;
+waitpid $conveyor, 0;
