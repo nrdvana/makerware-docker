@@ -23,9 +23,9 @@ First, make sure you have docker installed and working.
 
 Next:
 
-  git clone git@github.com/nrdvana/makerware-docker
-  cd makerware-docker
-  ./makerware-docker
+    git clone git@github.com/nrdvana/makerware-docker
+    cd makerware-docker
+    ./makerware-docker
 
 This should "Just Work".  After the first run, you have a docker image
 named "makerware:latest" and you can run the makerware-docker script
