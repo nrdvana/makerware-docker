@@ -7,15 +7,19 @@ use POSIX 'WNOHANG';
 # they normally would.
 if ($ENV{ID}) {
 	my ($uid, $user, $gid, $group, $grouplist)=
-		($ENV{ID} =~ /^uid=([0-9]+)\(([^)]+)\) gid=([0-9]+)\(([^\)]+)\) groups=(.*)$/)
+		($ENV{ID} =~ /^uid=([0-9]+)\(([^)]+)\) gid=([0-9]+)\(([^\)]+)\) [^=]+=(.*)$/)
 		or die "Unexpected format for 'id' command : $ENV{ID}";
 	my @sgroups;
 	for ("$gid($group)", split ',', $grouplist) {
+		# Each element of supplemental grouplist looks like   GID(GroupName)
+		# Add the GIDs to the list, and then create the group if it doesn't exist.
 		my ($sgid, $sgname)= ($_ =~ /^([0-9]+)\(([^)]+)\)$/)
 			or die "Unexpected format for 'id' command at : $_";
 		push @sgroups, $sgid;
-		system("groupadd", "-f", "-g", $sgid, $sgname) == 0
-			or die "groupadd -f -g $sgid $sgname";
+		unless (getgrgid $sgid) {
+			system("groupadd", "-f", "-g", $sgid, $sgname) == 0
+				or die "groupadd -f -g $sgid $sgname";
+		}
 	}
 	$grouplist= join(',', @sgroups);
 	system("useradd", "-M", "-N", -u => $uid, -g => $gid, -G => $grouplist, $user) == 0
