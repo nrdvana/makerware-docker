@@ -44,9 +44,12 @@ if ($ENV{ID}) {
 
 
 # from conveyor service definition at /etc/init/conveyor
-`mkdir -p /var/run/conveyor`;
-`chown conveyor:conveyor /var/run/conveyor`;
-`chmod 775 /var/run/conveyor`;
+my $conveyor_uid= getpwnam 'conveyor' or die "No conveyor user";
+my $conveyor_gid= getgrnam 'conveyor' or die "No conveyor group";
+mkdir $_ for qw( /run/conveyor /var/log/conveyor ); # ignore failure, might already exist
+chown $conveyor_uid, $conveyor_gid, '/run/conveyor' or die "$!";
+chown 0,$conveyor_gid, '/var/log/conveyor' or die "$!";
+chmod 03775, '/run/conveyor', '/var/log/conveyor';
 
 my @conveyor_cmd= qw( sudo -u conveyor LD_LIBRARY_PATH=/usr/lib/makerbot/ /usr/bin/conveyor-svc --config /etc/conveyor.conf );
 my @makerware_cmd= (($ENV{USER}? ( 'sudo', -u => $ENV{USER} ): ()), 'makerware');
