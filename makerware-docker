@@ -11,6 +11,7 @@
 # the container.
 XSOCK=/tmp/.X11-unix
 XAUTH="$HOME"/.docker.xauth
+touch "$XAUTH"
 
 # Also need to loosen access since docker container ends up with a
 # different hostname.  Or something.  I grabbed this line from StackOverflow

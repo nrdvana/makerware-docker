@@ -16,9 +16,24 @@ if ($ENV{ID}) {
 		my ($sgid, $sgname)= ($_ =~ /^([0-9]+)\(([^)]+)\)$/)
 			or die "Unexpected format for 'id' command at : $_";
 		push @sgroups, $sgid;
-		unless (getgrgid $sgid) {
-			system("groupadd", "-f", "-g", $sgid, $sgname) == 0
-				or die "groupadd -f -g $sgid $sgname";
+		next if !$sgid || $sgname eq 'root'; # never mess with root user or group
+		my $cnt_gname= getgrgid $sgid;
+		my $cnt_gid= getgrnam $sgname;
+		unless (($cnt_gname||'') eq $sgname) {
+			my @cmd;
+			if (!defined $cnt_gname && !defined $cnt_gid) { # neither exist in contianer
+				warn "Adding group $sgid ($sgname)\n";
+				@cmd= ( 'groupadd', -g => $sgid, $sgname );
+			}
+			elsif (!defined $cnt_gname) { # nothing owns the GID, but name does exist in container
+				warn "Changing container group '$sgname' to gid $sgid\n";
+				@cmd= ( 'groupmod', -g => $sgid, $sgname );
+			}
+			else { # gid maps to a different name in container than in host
+				warn "Container group $sgid is '$cnt_gname' but '$sgname' on host\n";
+			}
+			system(@cmd) == 0 or die "@cmd"
+				if @cmd;
 		}
 	}
 	$grouplist= join(',', @sgroups);
