@@ -1,4 +1,5 @@
 #! /bin/bash
+set -ue -o pipefail
 
 # Only rebuild the docker image if running from the git directory.
 # Presumably, people wil run this script once from there then copy
@@ -10,12 +11,9 @@
 # file must be visible at the same path both inside and outside of
 # the container.
 XSOCK=/tmp/.X11-unix
-XAUTH="$HOME"/.docker.xauth
-touch "$XAUTH"
-
-# Also need to loosen access since docker container ends up with a
-# different hostname.  Or something.  I grabbed this line from StackOverflow
-xauth nlist :0 | sed -e 's/^..../ffff/' | xauth -f "$XAUTH" nmerge -
+XAUTHORITY="$HOME"/.docker.xauth
+export XAUTHORITY
+touch "$XAUTHORITY"
 
 # Run the container with the X11 settings above, and also share the user's
 # home directory, and also inform the container about what UID/GID and
@@ -30,7 +28,8 @@ if id | grep docker > /dev/null; then
 else
   cmd="sudo docker"
 fi
-$cmd run -ti --privileged --rm \
-  -e DISPLAY="$DISPLAY" -v $XSOCK:$XSOCK -e XAUTHORITY=$XAUTH \
-  -e HOME="$HOME" -v "$HOME:$HOME" -e ID="`id`" \
-  makerware:latest
+$cmd run --privileged --rm --init --hostname=`hostname` \
+  -e DISPLAY -v "$XSOCK:$XSOCK" -e XAUTHORITY \
+  -e HOME -v "$HOME:$HOME" -w "$HOME" \
+  -e ID="`id`" \
+  "makerware:latest" "$@"

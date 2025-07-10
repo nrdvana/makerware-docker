@@ -52,7 +52,7 @@ chown 0,$conveyor_gid, '/var/log/conveyor' or die "$!";
 chmod 03775, '/run/conveyor', '/var/log/conveyor';
 
 my @conveyor_cmd= qw( sudo -u conveyor LD_LIBRARY_PATH=/usr/lib/makerbot/ /usr/bin/conveyor-svc --config /etc/conveyor.conf );
-my @makerware_cmd= (($ENV{USER}? ( 'sudo', -u => $ENV{USER} ): ()), 'makerware');
+my @makerware_cmd= (($ENV{USER}? ( 'sudo', -u => $ENV{USER} ): ()), 'makerware', @ARGV);
 
 my ($conveyor, $makerware, $pid);
 # Launch conveyor.  Make sure it starts.

@@ -1,0 +1,43 @@
+#! /bin/bash
+set -ue -o pipefail
+
+# This lets you install a set-gid binary to launch Makerware so that you
+# don't need sudo or to add your normal user to the docker group.
+# This improves security, but X11 itself is still a pretty large security hole...
+binary_path="${HOME}/bin/makerware-docker"
+icon_path="${HOME}/.local/share/icons/makerware.png"
+menuitem_path="${HOME}/.local/share/applications/makerware-docker.desktop"
+
+# make sure it compiles first
+gcc -o makerware-docker-setgid makerware-docker.c
+
+sudo docker build --tag makerware:latest docker
+
+# Extract logo from docker container
+echo "Installing icon $icon_path"
+mkdir -p ~/.local/share/icons
+sudo docker run --rm --entrypoint=/usr/bin/env makerware:latest cat /usr/share/makerbot/app-icon.png >"$icon_path"
+
+# Construct desktop file
+echo "Installing menu entry $menuitem_path"
+mkdir -p ~/.local/share/applications
+cat <<END >"$menuitem_path"
+[Desktop Entry]
+Encoding=UTF-8
+Type=Application
+Name=MakerWare (docker)
+Comment=View, arrange and print 3D files
+Exec=${binary_path} %F
+Terminal=false
+Icon=${icon_path}
+MimeType=model/x-stl;model/x-obj;model/x-thing
+Categories=Qt;Utility;
+END
+
+echo "Installing setgid binary $binary_path"
+sudo chgrp docker makerware-docker-setgid
+sudo chmod 2550 makerware-docker-setgid
+mkdir -p ~/bin
+mv makerware-docker-setgid "$binary_path"
+
+echo "Done"
